@@ -10,7 +10,22 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write # ESTE PERMISO ES CLAVE para subir al GitHub Container Registry
+      packages: write
+    services:
+      postgres_db:
+        image: postgres:13 # Usamos una imagen de postgres ligera
+        env:
+          POSTGRES_DB: testdb
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: admin
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    # -----------------------------------
 
     steps:
       - name: Checkout code
@@ -23,8 +38,19 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
+      - name: Wait for PostgreSQL service to be healthy
+        uses: jakejarvis/wait-for-carbon-service@master
+        with:
+          timeout: 60s
+          check_url: localhost:5432
+
       - name: Build the microservice with Maven
+        # --- PASAMOS LAS VARIABLES DE ENTORNO PARA LAS PRUEBAS ---
         run: ./mvnw clean install
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/testdb
+          SPRING_DATASOURCE_USERNAME: admin
+          SPRING_DATASOURCE_PASSWORD: admin
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
