@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-ms-deployment
+spec:
+  replicas: 1 # Inicia con una sola instancia
+  selector:
+    matchLabels:
+      app: auth-ms
+  template:
+    metadata:
+      labels:
+        app: auth-ms
+    spec:
+      containers:
+        - name: auth-ms-container
+          image: mayik/auth-ms:1.0.0 # <-- Tu imagen de Docker (Java 21)
+          ports:
+            - containerPort: 8081
+          env: # <-- Variables de entorno para la DB
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:postgresql://host.docker.internal:5432/testdb"
+            - name: SPRING_DATASOURCE_USERNAME
+              value: "admin"
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: "admin"
+          resources:
+            limits:
+              cpu: "250m"
+              memory: "256Mi"
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
