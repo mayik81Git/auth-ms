@@ -14,6 +14,7 @@ jobs:
 
     services:
       postgres_db:
+        # ... (la configuración de la DB sigue igual) ...
         image: postgres:13
         env:
           POSTGRES_DB: testdb
@@ -21,7 +22,6 @@ jobs:
           POSTGRES_PASSWORD: admin
         ports:
           - 5432:5432
-        # Healthcheck básico que K8s o Docker Compose usarían
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -39,10 +39,8 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      # --- NUEVO PASO: Esperar a que la DB esté lista usando 'nc' (netcat) ---
       - name: Wait for PostgreSQL service to be healthy
         run: |
-          # Script de shell que intenta conectar al puerto 5432 repetidamente
           for i in {1..30}; do
             nc -z localhost 5432 && echo "DB ready" && exit 0
             echo "Waiting for DB..."
@@ -50,7 +48,6 @@ jobs:
           done
           echo "DB not ready within timeout"
           exit 1
-      # ----------------------------------------------------------------------
 
       - name: Build the microservice with Maven
         run: ./mvnw clean install
@@ -58,6 +55,12 @@ jobs:
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/testdb
           SPRING_DATASOURCE_USERNAME: admin
           SPRING_DATASOURCE_PASSWORD: admin
+
+      # --- NUEVO PASO PARA FORZAR MINÚSCULAS ---
+      - name: Set lowercase repository name
+        run: |
+          echo "REPO_LOWERCASE=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+      # ----------------------------------------
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -71,4 +74,6 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository }}:latest
+          # --- USAMOS LA NUEVA VARIABLE DE ENTORNO ---
+          tags: ghcr.io/${{ env.REPO_LOWERCASE }}:latest
+          # ------------------------------------------
